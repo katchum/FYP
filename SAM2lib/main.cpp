@@ -5,6 +5,9 @@
 #include <vector>
 #include <string>
 
+//Need to improve the CSVRow class, put it in a different file, and implement related function within the class
+
+
 //get a alignment record, ignore the header, add 1 to then end
 class CSVRow
 {
@@ -27,11 +30,11 @@ class CSVRow
 
             m_data.clear();
 
-            	while(std::getline(lineStream,cell,'\t'))
-            	{
-                m_data.push_back(cell);
-            	}
-            	m_data.push_back("0");
+            while(std::getline(lineStream,cell,'\t'))
+            {
+            	m_data.push_back(cell);
+            }
+            m_data.push_back("0");
         }
     private:
         std::vector<std::string>    m_data;
@@ -51,10 +54,11 @@ double getGCratio(CSVRow read){
 			count++;
 		i++;
 	}
-	std::cout << read[9].length() << "\t";
-	std::cout << count << "\t";
+	//std::cout << read[9].length() << "\t";
+	//std::cout << count << "\t";
 	return count/read[9].length();
 }
+
 //clear
 std::string getMAPQ(CSVRow read){
 	return read[4];
@@ -98,48 +102,121 @@ bool isCorrect(CSVRow read, int gap){
     std::size_t f0 = read[0].find("_");
    	std::size_t f1 = read[0].find("_", f0+1);
  	std::size_t f2 = read[0].find("_", f1+1);
+
    	int start = atoi(read[0].substr (f0+1, f1-f0-1).c_str());
 	int end = atoi(read[0].substr(f1+1, f2-f1-1).c_str());
+
+	//std::cout << start << "\t" << read[2] << "\t" << read[3] << "\n";
+
 	if(read[0].substr(0, f0) == read[2]){
-		if(isReversed(read)){
-			if(gap > abs(atoi(read[3].c_str())-end))
-				return true;
+		if(!isReversed(read)){
+			if(gap > abs(atoi(read[3].c_str())-start)){
+				//std::cout << "case1true\n";
+				return true;}
+				//else
+					//std::cout << "case1false\n";
 		}
-
-		if(!isReversed(read))
-			if(gap > abs(atoi(read[7].c_str())-start))
-				return true;
-
+		if(isReversed(read)){
+			if(gap > abs(atoi(read[3].c_str())+read[9].size()-1-end)){
+				//std::cout << "case2true\n";
+				return true;}
+			//else
+				//std::cout << "case2false\n";
+		}
 	}
+
+	//std::cout << "false\n";
 	return false;
+}
+
+void print(CSVRow read){
+	int i = 0;
+	while(i < read.size()){
+		std::cout << read[i] << " ";
+		i++;
+	}
+	std::cout << "\n";
+}
+
+void pfile(CSVRow read,std::ofstream myfile){
+	if (!isUnmapped(read)){
+		int gap = 20;
+		//class label
+	   if (!isCorrect(read, gap)){
+		   myfile << "1:" << "-1" << " ";
+	   }
+	   else
+		   myfile << "1:" << "1" << " ";
+
+	//mapping quality
+	myfile << "2:" << read[3] << " ";
+	//TLEN
+	myfile << "3:" << abs(atoi(read[8].c_str())) << " ";
+	//flag
+	myfile << "4:" << getFlag(read) << " ";
+	//GC%
+	myfile << "5:" << getGCratio(read) << "\n";
+	}
 }
 
 int main()
 {
-    std::ifstream       file("chr1sim.sam");
+	//UI??
+	/*
+	std::cout << "input wgsim file name: ";
+	std::string filename;
+	std::cin >> filename;
+	std::cout << "output training file name: ";
+	std::string ofilename;
+	std::cin >> ofilename;
+	*/
+
+    std::ifstream       file("wgsimsample.sam");
+    std::ofstream		myfile;
+    myfile.open("wgsimexample.train");
     CSVRow              read;
     int gap = 20;
+
+    //ignore header
 	while (file.peek() == '@'){
 		file >> read;
 	}
+
+	//3 counters
+	int countw = 0;
+	int countu = 0;
 	int count = 0;
+
+	//output file
     while(file >> read)
     {
-    //	EvaluateRead(read);
-    /*//print
-    	int i = 0;
-    	while(i < read.size()){
-        std::cout << i << ":" << read[i] << " ";
-    	i++;
-    	}
-    	std::cout << "\n";
-*/
     	if (!isUnmapped(read)){
-    		if (!isCorrect(read, gap)){
-    	    	count++;
-        	}
+    			//class label
+    		   if (!isCorrect(read, gap)){
+    			   myfile << "1:" << "-1" << " ";
+    			   countw++;
+    		   }
+    		   else
+    			   myfile << "1:" << "1" << " ";
+
+    		//mapping quality
+    		myfile << "2:" << read[4] << " ";
+    		//TLEN
+    		myfile << "3:" << abs(atoi(read[8].c_str())) << " ";
+    		//flag
+    		myfile << "4:" << getFlag(read) << " ";
+    		//GC%
+    		myfile << "5:" << getGCratio(read) << "\n";
     	}
+    	else
+    		countu++;
     }
-    std::cout << count << "\n";
+    myfile.close();
+    std::cout << "Finished.\n";
+    std::cout << "Wrong alignments:" << countw << "\n";
+    std::cout << "Unmapped reads:" << countu << "\n";
+    std::cout << "Total reads:" << count << "\n";
+
+
     return 1;
 }
